@@ -14,17 +14,22 @@
     :root { color-scheme: dark; }
     /* Plain CSS (no Tailwind @apply) so it works with CDN-only */
     .md-card { background: rgba(23,23,23,0.7); backdrop-filter: blur(4px); border:1px solid #27272a; border-radius:1rem; box-shadow:0 12px 28px rgba(0,0,0,0.4); }
-    .md-input { width:100%; padding:0.75rem 1rem; border-radius:0.75rem; background: rgba(38,38,38,0.7); border:1px solid rgba(64,64,64,0.7); color:#e5e7eb; }
+    .md-input { width:100%; padding:0.5rem 0.75rem; border-radius:0.75rem; background: rgba(38,38,38,0.7); border:1px solid rgba(64,64,64,0.7); color:#e5e7eb; }
+    .si-input {border-radius: 0; border-top-left-radius:0.75rem; border-bottom-left-radius:0.75rem; border-right: 0; height: 2.6rem}
     .md-input::placeholder{ color:#9ca3af; }
     .md-input:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 2px #6366f1; }
+    .md-select { padding:0.5rem 0.75rem; border-radius:0.75rem; background: rgba(38,38,38,0.7); border:1px solid rgba(64,64,64,0.7); color:#e5e7eb; }
+    .si-select {border-radius: 0; border-top-right-radius:0.75rem; border-bottom-right-radius:0.75rem; height: 2.6rem; }
+    .md-select::placeholder{ color:#9ca3af; }
+    .md-select:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 2px #6366f1; }
     .md-label { font-size:0.875rem; color:#d1d5db; display:block; margin-bottom:0.25rem; }
     .md-btn { display:inline-flex; align-items:center; gap:0.5rem; padding:0.5rem 1rem; border-radius:0.75rem; background:#4f46e5; color:#fff; font-weight:500; box-shadow:0 10px 20px rgba(67,56,202,0.3); transition: background .15s ease; }
     .md-btn:hover { background:#6366f1; }
     .md-btn:active { background:#4338ca; }
     .md-muted { color:#9ca3af; }
-    .md-field { padding:1rem; border:1px solid #3f3f46; border-radius:0.75rem; background: rgba(24,24,27,0.6); }
-    .md-field-row { display:grid; grid-template-columns:1fr; gap:1.25rem; }
-    /* @media (min-width:640px){ .md-field-row { grid-template-columns:repeat(2,minmax(0,1fr)); } } */
+    .md-field { padding:0.5rem; border:1px solid #3f3f46; border-radius:0.75rem; background: rgba(24,24,27,0.6); }
+    .md-field-row { display:grid; grid-template-columns:1fr; gap:1rem; }
+    @media (min-width:640px){ .md-field-row { grid-template-columns:repeat(2,minmax(0,1fr)); } }
     .md-section { display:grid; gap:1.5rem; }
     .tabs { display:flex; align-items:center; gap:0.5rem; padding:0.25rem; border-radius:1rem; background:rgba(24,24,27,0.8); border:1px solid #27272a; }
     .tab { padding:0.5rem 1rem; border-radius:0.75rem; font-size:0.875rem; font-weight:500; color:#d1d5db; }
@@ -53,14 +58,21 @@
     <!-- Calculator tab -->
     <div x-show="tab==='calc'" x-transition.opacity.duration.200ms>
       <!-- Inputs -->
-      <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <section class="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <!-- Block: Core Params -->
-        <div class="md-card p-6 space-y-4">
+        <div class="md-card p-6 space-y-4 lg:col-span-3">
           <h2 class="text-xl font-semibold">Core parameters</h2>
           <div class="md-field-row">
             <div class="md-field">
               <label class="md-label">Series resistor R<sub>S</sub> (Ω)</label>
-              <input class="md-input" type="number" step="any" x-model.number="Rs" @input="recompute()" placeholder="e.g., 10000"/>
+              <div class="flex gap-0 items-center">
+                <input class="md-input si-input" type="number" step="any" x-model.number="Rs_disp" @input="syncRsFromDisp()" placeholder="e.g., 10"/>
+                <select class="md-select si-select" x-model="Rs_unit" @change="syncRsFromDisp()">
+                  <option value="1">Ω</option>
+                  <option value="1000">kΩ</option>
+                  <option value="1000000">MΩ</option>
+                </select>
+              </div>
             </div>
             <div class="md-field">
               <label class="md-label">Supply V<sub>S</sub> (V)</label>
@@ -68,7 +80,14 @@
             </div>
             <div class="md-field">
               <label class="md-label">NTC R<sub>0</sub> @ 25°C (Ω)</label>
-              <input class="md-input" type="number" step="any" x-model.number="R0" @input="recompute()" placeholder="e.g., 10000"/>
+              <div class="flex gap-0 items-center">
+                <input class="md-input si-input" type="number" step="any" x-model.number="R0_disp" @input="syncR0FromDisp()" placeholder="e.g., 10"/>
+                <select class="md-select si-select" x-model="R0_unit" @change="syncR0FromDisp()">
+                  <option value="1">Ω</option>
+                  <option value="1000">kΩ</option>
+                  <option value="1000000">MΩ</option>
+                </select>
+              </div>
             </div>
             <div class="md-field">
               <label class="md-label">NTC β (K)</label>
@@ -116,6 +135,7 @@
               <h3 class="font-medium mb-2">NTC Resistances</h3>
               <ul class="space-y-1 text-sm">
                 <li>R<sub>NTC</sub>(T<sub>min</sub>) = <b x-text="fmtOhms(Rntc_min)"></b></li>
+                <li>R<sub>NTC</sub>(T<sub>desired</sub>) = <b x-text="fmtOhms(Rntc_desired)"></b></li>
                 <li>R<sub>NTC</sub>(T<sub>max</sub>) = <b x-text="fmtOhms(Rntc_max)"></b></li>
               </ul>
             </div>
@@ -123,6 +143,7 @@
               <h3 class="font-medium mb-2">Voltages</h3>
               <ul class="space-y-1 text-sm">
                 <li>V<sub>out</sub>(T<sub>min</sub>) = <b x-text="fmtVolts(Vout_min)"></b></li>
+                <li>V<sub>out</sub>(T<sub>desired</sub>) = <b x-text="fmtVolts(Vout_desired)"></b></li>
                 <li>V<sub>out</sub>(T<sub>max</sub>) = <b x-text="fmtVolts(Vout_max)"></b></li>
                 <li>ΔV<sub>out</sub> = <b x-text="fmtVolts(Math.abs(Vout_max - Vout_min))"></b></li>
               </ul>
@@ -178,9 +199,9 @@
           <div class="md-field-row">
             <div class="md-field">
               <label class="md-label">NTC R<sub>0</sub> @ 25°C (Ω)</label>
-              <div class="flex gap-2 items-center">
-                <input class="md-input" type="number" step="any" x-model.number="opt_R0_disp" @input="syncOptR0FromDisp()" placeholder="e.g., 10"/>
-                <select class="md-select" x-model="opt_R0_unit" @change="syncOptR0FromDisp()">
+              <div class="flex gap-0 items-center">
+                <input class="md-input si-input" type="number" step="any" x-model.number="opt_R0_disp" @input="syncOptR0FromDisp()" placeholder="e.g., 10"/>
+                <select class="md-select si-select" x-model="opt_R0_unit" @change="syncOptR0FromDisp()">
                   <option value="1">Ω</option>
                   <option value="1000">kΩ</option>
                   <option value="1000000">MΩ</option>
@@ -293,8 +314,10 @@
 
         // Derived / display (Calculator)
         Rntc_min: 0,
+        Rntc_desired: 0,
         Rntc_max: 0,
         Vout_min: 0,
+        Vout_desired: 0,
         Vout_max: 0,
         exampleCode: null,
         tempForCode: 25,
@@ -329,7 +352,9 @@
         r_ntc(Tc) { return this.R0 * Math.exp(this.Beta * (1/this.k(Tc) - 1/298.15)); },
         v_div(Rs, Rntc) { return this.Vs * (Rntc / (Rs + Rntc)); },
 
+        // Helpers
         voutAt(Rs, Rntc) { return this.v_div(Rs, Rntc); },
+        
         // Optimizer helpers
         r_ntc_generic(r0, beta, Tc) { return r0 * Math.exp(beta * (1/this.k(Tc) - 1/298.15)); },
         r_ntc_opt(Tc) { const r0 = this.opt_R0_disp * Number(this.opt_R0_unit); return this.r_ntc_generic(r0, this.opt_Beta, Tc); },
@@ -396,9 +421,9 @@
         // Plot
         drawPlot() {
           // Data
-          const step = Math.max(0.25, (this.Tmax - this.Tmin) / 500);
+          const step = Math.max(0.25, (this.Tmax - this.Tmin) / 1000);
           const T = [], V = [];
-          for (let t = this.Tmin; t <= this.Tmax + 1e-9; t += step) {
+          for (let t = this.Tmin - 1e-9; t <= this.Tmax + 1e-9; t += step) {
             T.push(t);
             V.push(this.v_div(this.Rs, this.r_ntc(t)));
           }
@@ -425,8 +450,8 @@
             paper_bgcolor: 'rgba(0,0,0,0)',
             plot_bgcolor: 'rgba(0,0,0,0)',
             margin: {l: 60, r: 20, t: 10, b: 50},
-            xaxis: {title: 'Temperature (°C)', gridcolor: 'rgba(255,255,255,0.06)', zerolinecolor: 'rgba(255,255,255,0.1)'},
-            yaxis: {title: 'Vout (V)', gridcolor: 'rgba(255,255,255,0.06)'}
+            xaxis: {title: 'Temperature (°C)', gridcolor: 'rgba(255,255,255,0.1)', zerolinecolor: 'rgba(255,255,255,0.25)'},
+            yaxis: {title: 'Vout (V)', gridcolor: 'rgba(255,255,255,0.1)'}
           };
 
           Plotly.newPlot('plot', [trace, markDesired], layout, {displayModeBar: true, responsive: true});
@@ -447,8 +472,10 @@
           if (this.Tmax < this.Tmin) this.Tmax = this.Tmin;
           // Calculator path
           this.Rntc_min = this.r_ntc(this.Tmin);
+          this.Rntc_desired = this.r_ntc(this.Tdesired);
           this.Rntc_max = this.r_ntc(this.Tmax);
           this.Vout_min = this.v_div(this.Rs, this.Rntc_min);
+          this.Vout_desired = this.v_div(this.Rs, this.Rntc_desired);
           this.Vout_max = this.v_div(this.Rs, this.Rntc_max);
           if (this.tempForCode !== null && this.tempForCode !== undefined) {
             this.exampleCode = this.tempToAdcCode(this.tempForCode);
